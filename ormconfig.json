@@ -1,0 +1,12 @@
+{
+  "type": "postgres",
+  "host": "207.154.241.194",
+  "port": 5432,
+  "username": "formica",
+  "password": "formicA123!",
+  "database": "postgres",
+  "synchronize": true,
+  "logging": false,
+  "entities": ["src/entity/**/*.ts"],
+  "migrations": ["src/migration/**/*.ts"]
+}
