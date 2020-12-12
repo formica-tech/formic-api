@@ -1,10 +1,37 @@
 import { ApolloServer } from "apollo-server";
-import { schema } from "gql/schema";
-import AuthService from "service/auth";
-import { Container } from "typedi";
+import { buildSchemaSync } from "type-graphql";
+import { RedisPubSub } from "graphql-redis-subscriptions";
+import Redis from "ioredis";
 
-export async function startGQLServer(port: number): Promise<void> {
+import { Container } from "typedi";
+import AuthService from "service/auth";
+import Config from "utils/config";
+
+export async function startGQLServer(): Promise<void> {
   const authService = Container.get(AuthService);
+  const configService = Container.get(Config);
+  const { redis, port } = configService.get();
+
+  const options: Redis.RedisOptions = {
+    host: redis.host,
+    port: redis.port,
+    retryStrategy: (times) => Math.max(times * 100, 3000),
+  };
+
+  const pubSub = new RedisPubSub({
+    publisher: new Redis(options),
+    subscriber: new Redis(options),
+  });
+
+  const schema = buildSchemaSync({
+    resolvers: [__dirname + "/resolver/**/*.resolver.{js,ts}"],
+    authChecker: ({ context }) => {
+      return context.user != null && context.user.verified;
+    },
+    container: Container,
+    pubSub,
+  });
+
   const server = new ApolloServer({
     schema,
     playground: true,

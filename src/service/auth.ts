@@ -2,8 +2,8 @@ import User from "entity/user";
 import UserVerificationCode from "entity/userVerificationCode";
 import { EntityManager, Repository } from "typeorm";
 import { InjectManager, InjectRepository } from "typeorm-typedi-extensions";
+import Config from "utils/config";
 import JWT from "utils/jwt";
-import config from "config";
 import { Inject, Service } from "typedi";
 import Mailer from "utils/mailer";
 
@@ -31,7 +31,12 @@ export default class AuthService {
   @InjectManager()
   private entityManager: EntityManager;
 
-  private jwt = new JWT<JwtPayload>(config.keyPath);
+  private jwt: JWT<JwtPayload>;
+
+  constructor(@Inject(() => Config) config: Config) {
+    this.jwt = new JWT<JwtPayload>(config.get().key.private);
+  }
+
   async parseKeyToUser(key: string): Promise<User> {
     const payload = this.jwt.verify(key);
     const user = await this.userRepo.findOne(payload.user.id);

@@ -4,9 +4,11 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 
-RUN npm install
+RUN npm install --only=prod --silent
 
-COPY . .
+COPY ./dist ./dist
+COPY ./config.json ./config.json
+COPY ./keys ./keys
 
-EXPOSE 7000
-CMD [ "node", "index.js" ]
+EXPOSE 4000
+CMD [ "npm", "start" ]
