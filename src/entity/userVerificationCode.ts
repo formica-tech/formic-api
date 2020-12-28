@@ -12,7 +12,8 @@ class UserVerificationCode {
   EXPIRE_DURATION_MS = 2 * 24 * 60 * 60 * 1000;
 
   constructor(user?: User) {
-    this.code = Math.random().toString(36).substring(2, 8);
+    // generate 6 digit verification code
+    this.code = String(100000 + Math.floor(Math.random() * 900000));
     this.expiresAt = new Date(Date.now() + this.EXPIRE_DURATION_MS);
     if (user) {
       this.user = user;

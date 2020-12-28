@@ -25,8 +25,18 @@ export async function startGQLServer(): Promise<void> {
 
   const schema = buildSchemaSync({
     resolvers: [__dirname + "/resolver/**/*.resolver.{js,ts}"],
-    authChecker: ({ context }) => {
-      return context.user != null && context.user.verified;
+    authChecker: (params) => {
+      const { context, info } = params;
+
+      if (context.user == null) {
+        return false;
+      }
+
+      if (info.fieldName === "me") {
+        return true;
+      }
+
+      return context.user.verified;
     },
     container: Container,
     pubSub,

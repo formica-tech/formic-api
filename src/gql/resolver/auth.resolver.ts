@@ -35,13 +35,23 @@ export default class AuthResolver {
     return Me.fromUser(user);
   }
 
-  @Mutation(() => Token)
+  @Mutation(() => LoginResult)
   async login(
     @Arg("email") email: string,
     @Arg("password") password: string
-  ): Promise<Token> {
+  ): Promise<InvalidCredentials | Token> {
     const result = new Token();
-    result.token = await this.authService.login(email, password);
+    try {
+      result.token = await this.authService.login(email, password);
+    } catch (e) {
+      if (
+        e === AuthService.ERR_LOGIN_FAILED ||
+        e === AuthService.ERR_USER_NOT_FOUND
+      ) {
+        return new InvalidCredentials(email);
+      }
+      throw e;
+    }
     return result;
   }
 
@@ -65,15 +75,25 @@ export default class AuthResolver {
   @Mutation(() => String)
   async verify(
     @Ctx("user") user: User | null,
-    @Arg("id") id: string,
-    @Arg("code") code: string
+    @Arg("verification") verification: VerificationInput
   ): Promise<string> {
-    await this.authService.verify(user, code, id);
-    return id;
+    await this.authService.verify(user, verification.code, verification.id);
+    return verification.id;
+  }
+
+  @Mutation(() => Verification)
+  async resendCode(
+    @Ctx("user") user: User | null,
+    @Arg("verificationId") verificationId: string
+  ): Promise<Verification> {
+    const id = await this.authService.resendCode(user, verificationId);
+    return new Verification(id);
   }
 
   @Mutation(() => ForgotPasswordResult)
-  async forgotPassword(@Arg("email") email: string) {
+  async forgotPassword(
+    @Arg("email") email: string
+  ): Promise<Verification | UserNotFound> {
     try {
       const id = await this.authService.forgotPassword(email);
       return new Verification(id);
@@ -86,18 +106,16 @@ export default class AuthResolver {
   }
 
   @Mutation(() => PasswordChanged)
-  async updatePassword(
-    @Arg("email") email: string,
-    @Arg("password") password: string,
+  async restorePassword(
+    @Arg("newPassword") newPassword: string,
     @Arg("verification") verificaiton: VerificationInput
-  ) {
-    await this.authService.updatePassword(
-      email,
+  ): Promise<PasswordChanged> {
+    const user = await this.authService.restorePassword(
       verificaiton.id,
       verificaiton.code,
-      password
+      newPassword
     );
-    return new PasswordChanged(email);
+    return new PasswordChanged(user.email);
   }
 }
 
@@ -112,11 +130,15 @@ class Me {
   @Field()
   username: string;
 
+  @Field()
+  verified: boolean;
+
   static fromUser(user: User) {
     const me = new Me();
     me.id = user.id;
     me.email = user.email;
     me.username = user.username;
+    me.verified = user.verified;
     return me;
   }
 }
@@ -126,6 +148,20 @@ class Token {
   @Field()
   token: string;
 }
+
+@ObjectType()
+class InvalidCredentials {
+  constructor(email: string) {
+    this.email = email;
+  }
+  @Field()
+  email: string;
+}
+
+const LoginResult = createUnionType({
+  name: "LoginResult",
+  types: () => [InvalidCredentials, Token],
+});
 
 @ObjectType()
 class UserNotFound {

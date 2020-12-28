@@ -74,9 +74,11 @@ export default class AuthService {
     }
     user.setPassword(password);
 
-    const code = await this.entityManager.transaction(async (t) => {
-      const newUser = await t.save(user);
-      return this.sendVerificationEmail(newUser);
+    const code = await this.entityManager.transaction((t) => {
+      return t
+        .save(user)
+        .then((u) => this.sendVerificationEmail(u))
+        .then((c) => t.save(c));
     });
     return code.id;
   }
@@ -85,21 +87,18 @@ export default class AuthService {
     user: User
   ): Promise<UserVerificationCode> {
     const code = new UserVerificationCode(user);
-    return await this.entityManager.transaction(async (t) => {
-      await this.mailer.send(
-        user.email,
-        "Verification Code",
-        "Your verification code: " + code.code
-      );
-      return t.save(code);
-    });
+    await this.mailer.send(
+      user.email,
+      "Verification Code",
+      "Your verification code: " + code.code
+    );
+    return code;
   }
 
   private async checkVerificationCode<T>(
-    userId: string,
     verificationId: string,
     code: string,
-    handleVerified: (entityManager: EntityManager) => Promise<T>
+    handleVerified: (entityManager: EntityManager, user: User) => Promise<T>
   ): Promise<T> {
     const verificationCode = await this.userVerificationRepo.findOne(
       {
@@ -107,10 +106,6 @@ export default class AuthService {
       },
       { relations: ["user"] }
     );
-
-    if (userId !== verificationCode?.user.id) {
-      throw AuthService.ERR_INVALID_VERIFICATION_USER;
-    }
 
     if (!verificationCode) {
       throw AuthService.ERR_INVALID_VERIFICATION_ID;
@@ -127,7 +122,7 @@ export default class AuthService {
 
     return await this.entityManager.transaction(async (t: EntityManager) => {
       await t.delete(UserVerificationCode, { id: verificationId });
-      return handleVerified(t);
+      return handleVerified(t, verificationCode.user);
     });
   }
 
@@ -140,14 +135,41 @@ export default class AuthService {
       throw AuthService.ERR_USER_NOT_FOUND;
     }
     await this.checkVerificationCode<void>(
-      user.id,
       verificationId,
       code,
-      async (t: EntityManager) => {
+      async (t: EntityManager, user) => {
         user.verified = true;
         await t.save(user);
       }
     );
+  }
+
+  async resendCode(user: User | null, id: string): Promise<string> {
+    if (!user) {
+      throw AuthService.ERR_USER_NOT_FOUND;
+    }
+    const oldCode = await this.userVerificationRepo.findOne(
+      {
+        id,
+      },
+      { relations: ["user"] }
+    );
+
+    if (!oldCode) {
+      throw AuthService.ERR_INVALID_VERIFICATION_ID;
+    }
+
+    if (oldCode.user.id !== user.id) {
+      throw AuthService.ERR_INVALID_VERIFICATION_USER;
+    }
+
+    return this.entityManager.transaction(async (t) => {
+      await t.delete(UserVerificationCode, { id });
+      const code = await this.sendVerificationEmail(oldCode.user).then((c) =>
+        t.save(c)
+      );
+      return code.id;
+    });
   }
 
   async forgotPassword(email: string): Promise<string> {
@@ -156,26 +178,21 @@ export default class AuthService {
       throw AuthService.ERR_USER_NOT_FOUND;
     }
     const code = await this.sendVerificationEmail(user);
-    return code.id;
+    return this.userVerificationRepo.save(code).then(({ id }) => id);
   }
 
-  async updatePassword(
-    email: string,
+  async restorePassword(
     verificationId: string,
     code: string,
     newPassword: string
-  ): Promise<void> {
-    const user = await this.userRepo.findOne({ email });
-    if (!user) {
-      throw AuthService.ERR_USER_NOT_FOUND;
-    }
-    await this.checkVerificationCode(
-      user.id,
+  ): Promise<User> {
+    return await this.checkVerificationCode(
       verificationId,
       code,
-      async (t) => {
+      async (t, user) => {
         user.setPassword(newPassword);
         await t.save(user);
+        return user;
       }
     );
   }
