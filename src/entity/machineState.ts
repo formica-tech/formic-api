@@ -1,6 +1,7 @@
 import DeviceSignal from "entity/deviceSignal";
 import Machine from "entity/machine";
 import {
+  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,
@@ -11,7 +12,7 @@ import {
 } from "typeorm";
 
 @Entity()
-class MachineState {
+class MachineState extends BaseEntity {
   @ManyToOne(() => Machine)
   machine: Machine;
 

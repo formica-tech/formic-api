@@ -1,12 +1,16 @@
+import UserVerificationCode from "entity/userVerificationCode";
 import { FileUpload, GraphQLUpload } from "graphql-upload";
-import AuthService from "service/auth";
+import AuthService, {
+  LOGIN_FAILED,
+  USER_ALREADY_EXISTS,
+  USER_NOT_FOUND,
+} from "service/auth";
 import {
   Arg,
   Authorized,
   createUnionType,
   Ctx,
   Field,
-  ID,
   InputType,
   Mutation,
   ObjectType,
@@ -30,10 +34,10 @@ export default class AuthResolver {
   @Inject(() => AuthService)
   private readonly authService: AuthService;
 
-  @Query(() => Me)
+  @Query(() => User)
   @Authorized()
-  async me(@Ctx("user") user: User): Promise<Me> {
-    return Me.fromUser(user);
+  async me(@Ctx("user") user: User): Promise<User> {
+    return user;
   }
 
   @Mutation(() => LoginResult)
@@ -45,10 +49,7 @@ export default class AuthResolver {
     try {
       result.token = await this.authService.login(email, password);
     } catch (e) {
-      if (
-        e === AuthService.ERR_LOGIN_FAILED ||
-        e === AuthService.ERR_USER_NOT_FOUND
-      ) {
+      if (e.code === LOGIN_FAILED || e.code === USER_NOT_FOUND) {
         return new InvalidCredentials(email);
       }
       throw e;
@@ -66,7 +67,7 @@ export default class AuthResolver {
       const token = await this.authService.login(email, password);
       return new SignedUp(verificationId, token);
     } catch (ex) {
-      if (ex === AuthService.ERR_USER_ALREADY_EXISTS) {
+      if (ex.code === USER_ALREADY_EXISTS) {
         return new AlreadySignedUp(email);
       }
       throw ex;
@@ -82,24 +83,22 @@ export default class AuthResolver {
     return verification.id;
   }
 
-  @Mutation(() => Verification)
+  @Mutation(() => UserVerificationCode)
   async resendCode(
     @Ctx("user") user: User | null,
     @Arg("verificationId") verificationId: string
-  ): Promise<Verification> {
-    const id = await this.authService.resendCode(user, verificationId);
-    return new Verification(id);
+  ): Promise<UserVerificationCode> {
+    return this.authService.resendCode(user, verificationId);
   }
 
   @Mutation(() => ForgotPasswordResult)
   async forgotPassword(
     @Arg("email") email: string
-  ): Promise<Verification | UserNotFound> {
+  ): Promise<UserVerificationCode | UserNotFound> {
     try {
-      const id = await this.authService.forgotPassword(email);
-      return new Verification(id);
+      return this.authService.forgotPassword(email);
     } catch (e) {
-      if (e === AuthService.ERR_USER_NOT_FOUND) {
+      if (e.code === USER_NOT_FOUND) {
         return new UserNotFound(email);
       }
       throw e;
@@ -136,30 +135,6 @@ export default class AuthResolver {
 }
 
 @ObjectType()
-class Me {
-  @Field(() => ID)
-  id: string;
-
-  @Field()
-  email: string;
-
-  @Field()
-  username: string;
-
-  @Field()
-  verified: boolean;
-
-  static fromUser(user: User) {
-    const me = new Me();
-    me.id = user.id;
-    me.email = user.email;
-    me.username = user.username;
-    me.verified = user.verified;
-    return me;
-  }
-}
-
-@ObjectType()
 class Token {
   @Field()
   token: string;
@@ -190,16 +165,6 @@ class UserNotFound {
 }
 
 @ObjectType()
-class Verification {
-  constructor(id: string) {
-    this.id = id;
-  }
-
-  @Field()
-  id: string;
-}
-
-@ObjectType()
 class PasswordChanged {
   constructor(email: string) {
     this.email = email;
@@ -211,7 +176,7 @@ class PasswordChanged {
 
 const ForgotPasswordResult = createUnionType({
   name: "ForgotPasswordResult",
-  types: () => [UserNotFound, Verification],
+  types: () => [UserNotFound, UserVerificationCode],
 });
 
 const SignUpResult = createUnionType({

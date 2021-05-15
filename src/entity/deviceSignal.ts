@@ -1,6 +1,12 @@
 import Device from "entity/device";
 import Machine from "entity/machine";
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import {
+  BaseEntity,
+  Column,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from "typeorm";
 
 export type EventPayload =
   | { amount: number }
@@ -8,7 +14,7 @@ export type EventPayload =
   | { key: string };
 
 @Entity()
-class DeviceSignal {
+class DeviceSignal extends BaseEntity {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 

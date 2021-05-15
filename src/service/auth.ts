@@ -1,9 +1,10 @@
 import User from "entity/user";
 import UserVerificationCode from "entity/userVerificationCode";
 import { ReadStream } from "fs";
+import ServiceError from "service/ServiceError";
 import { Inject, Service } from "typedi";
-import { EntityManager, Repository } from "typeorm";
-import { InjectManager, InjectRepository } from "typeorm-typedi-extensions";
+import { EntityManager } from "typeorm";
+import { InjectManager } from "typeorm-typedi-extensions";
 import Config from "utils/config";
 import JWT from "utils/jwt";
 import ObjectStorage, { ObjectType } from "utils/objectStorage";
@@ -21,12 +22,6 @@ export type JwtPayload = {
 
 @Service()
 export default class AuthService {
-  @InjectRepository(User)
-  private readonly userRepo: Repository<User>;
-
-  @InjectRepository(UserVerificationCode)
-  private readonly userVerificationRepo: Repository<UserVerificationCode>;
-
   @Inject(() => Mailer)
   private readonly mailer: Mailer;
 
@@ -44,20 +39,20 @@ export default class AuthService {
 
   async parseKeyToUser(key: string): Promise<User> {
     const payload = this.jwt.verify(key);
-    const user = await this.userRepo.findOne(payload.user.id);
+    const user = await User.findOne(payload.user.id);
     if (!user) {
-      throw AuthService.ERR_USER_NOT_FOUND;
+      throw this.userNotFound();
     }
     return user;
   }
 
   async login(email: string, password: string): Promise<string> {
-    const user = await this.userRepo.findOne({ email });
+    const user = await User.findOne({ email });
     if (!user) {
-      throw AuthService.ERR_USER_NOT_FOUND;
+      throw this.userNotFound();
     }
     if (!user.checkPassword(password)) {
-      throw AuthService.ERR_LOGIN_FAILED;
+      throw new ServiceError("invalid credentials", LOGIN_FAILED);
     }
     return this.jwt.sign({
       user: { id: user.id, email: user.email },
@@ -66,9 +61,9 @@ export default class AuthService {
   }
 
   async signUp(email: string, password: string): Promise<string> {
-    const count = await this.userRepo.count({ email });
+    const count = await User.count({ email });
     if (count > 0) {
-      throw AuthService.ERR_USER_ALREADY_EXISTS;
+      throw new ServiceError("user already exists", USER_ALREADY_EXISTS);
     }
 
     const user = new User();
@@ -105,7 +100,7 @@ export default class AuthService {
     code: string,
     handleVerified: (entityManager: EntityManager, user: User) => Promise<T>
   ): Promise<T> {
-    const verificationCode = await this.userVerificationRepo.findOne(
+    const verificationCode = await UserVerificationCode.findOne(
       {
         id: verificationId,
       },
@@ -113,16 +108,19 @@ export default class AuthService {
     );
 
     if (!verificationCode) {
-      throw AuthService.ERR_INVALID_VERIFICATION_ID;
+      throw this.invalidVerificationId();
     }
 
     if (verificationCode.code !== code) {
-      throw AuthService.ERR_INVALID_VERIFICATION_CODE;
+      throw new ServiceError(
+        "invalid verification code",
+        INVALID_VERIFICATION_CODE
+      );
     }
 
     if (Date.now() > verificationCode.expiresAt.valueOf()) {
-      await this.userRepo.delete({ id: verificationId });
-      throw AuthService.ERR_VERIFICATION_EXPIRED;
+      await verificationCode.remove();
+      throw new ServiceError("verification is expired", VERIFICATION_EXPIRED);
     }
 
     return await this.entityManager.transaction(async (t: EntityManager) => {
@@ -137,7 +135,7 @@ export default class AuthService {
     verificationId: string
   ): Promise<void> {
     if (!user) {
-      throw AuthService.ERR_USER_NOT_FOUND;
+      throw this.userNotFound();
     }
     await this.checkVerificationCode<void>(
       verificationId,
@@ -149,11 +147,14 @@ export default class AuthService {
     );
   }
 
-  async resendCode(user: User | null, id: string): Promise<string> {
+  async resendCode(
+    user: User | null,
+    id: string
+  ): Promise<UserVerificationCode> {
     if (!user) {
-      throw AuthService.ERR_USER_NOT_FOUND;
+      throw this.userNotFound();
     }
-    const oldCode = await this.userVerificationRepo.findOne(
+    const oldCode = await UserVerificationCode.findOne(
       {
         id,
       },
@@ -161,29 +162,29 @@ export default class AuthService {
     );
 
     if (!oldCode) {
-      throw AuthService.ERR_INVALID_VERIFICATION_ID;
+      throw this.invalidVerificationId();
     }
 
     if (oldCode.user.id !== user.id) {
-      throw AuthService.ERR_INVALID_VERIFICATION_USER;
+      throw new ServiceError(
+        "invalid verification user",
+        INVALID_VERIFICATION_USER
+      );
     }
 
     return this.entityManager.transaction(async (t) => {
       await t.delete(UserVerificationCode, { id });
-      const code = await this.sendVerificationEmail(oldCode.user).then((c) =>
-        t.save(c)
-      );
-      return code.id;
+      return this.sendVerificationEmail(oldCode.user).then((c) => t.save(c));
     });
   }
 
-  async forgotPassword(email: string): Promise<string> {
-    const user = await this.userRepo.findOne({ email });
+  async forgotPassword(email: string): Promise<UserVerificationCode> {
+    const user = await User.findOne({ email });
     if (!user) {
-      throw AuthService.ERR_USER_NOT_FOUND;
+      throw this.userNotFound();
     }
     const code = await this.sendVerificationEmail(user);
-    return this.userVerificationRepo.save(code).then(({ id }) => id);
+    return code.save();
   }
 
   async restorePassword(
@@ -215,11 +216,18 @@ export default class AuthService {
     );
   }
 
-  static ERR_INVALID_VERIFICATION_ID = new Error("invalid verification id");
-  static ERR_INVALID_VERIFICATION_USER = new Error("invalid verification user");
-  static ERR_INVALID_VERIFICATION_CODE = new Error("invalid verification code");
-  static ERR_VERIFICATION_EXPIRED = new Error("verification is expired");
-  static ERR_USER_NOT_FOUND = new Error("user not found");
-  static ERR_LOGIN_FAILED = new Error("invalid credentials");
-  static ERR_USER_ALREADY_EXISTS = new Error("user already exists");
+  userNotFound(): ServiceError {
+    return new ServiceError("user not found", USER_NOT_FOUND);
+  }
+  invalidVerificationId(): ServiceError {
+    return new ServiceError("invalid verification id", INVALID_VERIFICATION_ID);
+  }
 }
+
+export const INVALID_VERIFICATION_ID = "INVALID_VERIFICATION_ID";
+export const INVALID_VERIFICATION_USER = "INVALID_VERIFICATION_USER";
+export const INVALID_VERIFICATION_CODE = "INVALID_VERIFICATION_CODE";
+export const VERIFICATION_EXPIRED = "VERIFICATION_EXPIRED";
+export const USER_NOT_FOUND = "USER_NOT_FOUND";
+export const LOGIN_FAILED = "LOGIN_FAILED";
+export const USER_ALREADY_EXISTS = "USER_ALREADY_EXISTS";

@@ -1,5 +1,6 @@
 import DeviceSignal from "entity/deviceSignal";
 import {
+  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,
@@ -9,7 +10,7 @@ import {
 } from "typeorm";
 
 @Entity()
-class Machine {
+class Machine extends BaseEntity {
   @PrimaryColumn()
   id: string;
 

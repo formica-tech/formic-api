@@ -1,6 +1,8 @@
 import { IsEmail } from "class-validator";
 import UserVerificationCode from "entity/userVerificationCode";
+import { Field, ID, ObjectType } from "type-graphql";
 import {
+  BaseEntity,
   Column,
   CreateDateColumn,
   Entity,
@@ -11,13 +13,17 @@ import {
 import * as crypto from "crypto";
 
 @Entity()
-class User {
+@ObjectType()
+class User extends BaseEntity {
+  @Field(() => ID)
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
+  @Field()
   @Column()
   username: string;
 
+  @Field()
   @Column({ unique: true })
   @IsEmail()
   email: string;
@@ -28,15 +34,19 @@ class User {
   @Column()
   salt: string;
 
+  @Field()
   @Column({ default: "" })
   firstName: string;
 
+  @Field()
   @Column({ default: "" })
   lastName: string;
 
+  @Field()
   @Column({ unique: true, nullable: true })
   phone: string;
 
+  @Field()
   @Column({
     default: false,
   })
