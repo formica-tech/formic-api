@@ -16,8 +16,8 @@ class Machine {
   @Column()
   name: string;
 
-  @OneToMany(() => DeviceSignal, (signal) => signal.device)
-  signals: DeviceSignal;
+  @OneToMany(() => DeviceSignal, (signal) => signal.machine)
+  signals: DeviceSignal[];
 
   @UpdateDateColumn()
   updatedAt: Date;

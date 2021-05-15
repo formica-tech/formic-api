@@ -17,7 +17,7 @@ class Device {
   name: string;
 
   @OneToMany(() => DeviceSignal, (signal) => signal.device)
-  signals: DeviceSignal;
+  signals: DeviceSignal[];
 
   @UpdateDateColumn()
   updatedAt: Date;

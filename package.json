@@ -20,14 +20,19 @@
   "license": "ISC",
   "dependencies": {
     "apollo-server": "^2.19.0",
+    "apollo-server-express": "^2.19.1",
     "class-validator": "^0.12.2",
     "coupon-code": "^0.4.5",
+    "express": "^4.17.1",
     "graphql": "^15.4.0",
     "graphql-redis-subscriptions": "^2.3.1",
     "graphql-tools": "^7.0.2",
     "graphql-transport-ws": "^1.9.0",
+    "graphql-upload": "^11.0.0",
     "ioredis": "^4.19.2",
     "jsonwebtoken": "^8.5.1",
+    "mime-types": "^2.1.28",
+    "minio": "^7.0.18",
     "nodemailer": "^6.4.16",
     "pg": "^8.5.1",
     "reflect-metadata": "^0.1.13",
@@ -42,6 +47,8 @@
     "@commitlint/config-conventional": "^11.0.0",
     "@types/ioredis": "^4.17.8",
     "@types/jsonwebtoken": "^8.5.0",
+    "@types/mime-types": "^2.1.0",
+    "@types/minio": "^7.0.6",
     "@types/node": "^14.14.11",
     "@types/node-fetch": "^2.5.7",
     "@types/nodemailer": "^6.4.0",
@@ -62,11 +69,11 @@
       "src",
       "config.json"
     ],
-    "exec": "ts-node ./src/app.ts",
+    "exec": "ts-node --files ./src/app.ts",
     "env": {
       "NODE_PATH": "./src"
     },
-    "ext": "ts,json"
+    "ext": "ts,json,graphql"
   },
   "eslintConfig": {
     "env": {

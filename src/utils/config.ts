@@ -25,6 +25,12 @@ const AppConfig = z.object({
     password: z.string(),
     database: z.string(),
   }),
+  objectStorage: z.object({
+    host: z.string(),
+    port: z.number(),
+    accessKey: z.string(),
+    secretKey: z.string(),
+  }),
 });
 
 export type AppConfig = z.infer<typeof AppConfig>;

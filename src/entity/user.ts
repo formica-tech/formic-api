@@ -28,6 +28,15 @@ class User {
   @Column()
   salt: string;
 
+  @Column({ default: "" })
+  firstName: string;
+
+  @Column({ default: "" })
+  lastName: string;
+
+  @Column({ unique: true, nullable: true })
+  phone: string;
+
   @Column({
     default: false,
   })

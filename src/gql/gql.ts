@@ -1,16 +1,16 @@
-import { ApolloServer } from "apollo-server";
-import { buildSchemaSync } from "type-graphql";
+import { ApolloServer } from "apollo-server-express";
+import { Express } from "express";
 import { RedisPubSub } from "graphql-redis-subscriptions";
+import { graphqlUploadExpress } from "graphql-upload";
 import Redis from "ioredis";
+import { buildSchemaSync } from "type-graphql";
 
 import { Container } from "typedi";
-import AuthService from "service/auth";
 import Config from "utils/config";
 
-export async function startGQLServer(): Promise<void> {
-  const authService = Container.get(AuthService);
+export async function gql(app: Express): Promise<void> {
   const configService = Container.get(Config);
-  const { redis, port } = configService.get();
+  const { redis } = configService.get();
 
   const options: Redis.RedisOptions = {
     host: redis.host,
@@ -44,28 +44,17 @@ export async function startGQLServer(): Promise<void> {
 
   const server = new ApolloServer({
     schema,
-    playground: true,
+    playground: false,
+    uploads: false,
     context: async (ctx) => {
       const { req, ...rest } = ctx;
-      const key = req.header("authorization");
-      if (!key) {
-        return ctx;
-      }
-      try {
-        const user = await authService.parseKeyToUser(
-          key.replace("Bearer ", "")
-        );
-        return {
-          user,
-          req,
-          ...rest,
-        };
-      } catch (ex) {
-        return ctx;
-      }
+      return {
+        user: req.user,
+        req,
+        ...rest,
+      };
     },
   });
-
-  const { url } = await server.listen(port);
-  console.log(`Server is running, GraphQL Playground available at ${url}`);
+  app.use(graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 10 }));
+  server.applyMiddleware({ app });
 }

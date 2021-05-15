@@ -1,10 +1,12 @@
 import User from "entity/user";
 import UserVerificationCode from "entity/userVerificationCode";
+import { ReadStream } from "fs";
+import { Inject, Service } from "typedi";
 import { EntityManager, Repository } from "typeorm";
 import { InjectManager, InjectRepository } from "typeorm-typedi-extensions";
 import Config from "utils/config";
 import JWT from "utils/jwt";
-import { Inject, Service } from "typedi";
+import ObjectStorage, { ObjectType } from "utils/objectStorage";
 import Mailer from "utils/mailer";
 
 export type JwtPayload = {
@@ -20,16 +22,19 @@ export type JwtPayload = {
 @Service()
 export default class AuthService {
   @InjectRepository(User)
-  private userRepo: Repository<User>;
+  private readonly userRepo: Repository<User>;
 
   @InjectRepository(UserVerificationCode)
-  private userVerificationRepo: Repository<UserVerificationCode>;
+  private readonly userVerificationRepo: Repository<UserVerificationCode>;
 
   @Inject(() => Mailer)
-  private mailer: Mailer;
+  private readonly mailer: Mailer;
 
   @InjectManager()
-  private entityManager: EntityManager;
+  private readonly entityManager: EntityManager;
+
+  @Inject(() => ObjectStorage)
+  private readonly objectStorage: ObjectStorage;
 
   private jwt: JWT<JwtPayload>;
 
@@ -194,6 +199,19 @@ export default class AuthService {
         await t.save(user);
         return user;
       }
+    );
+  }
+
+  async uploadProfilePicture(
+    user: User,
+    file: ReadStream,
+    contentType: string
+  ): Promise<void> {
+    await this.objectStorage.uploadFile(
+      ObjectType.ProfilePicture,
+      user.id,
+      file,
+      contentType
     );
   }
 

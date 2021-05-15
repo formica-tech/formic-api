@@ -22,5 +22,11 @@
     "username": "formica",
     "password": "formicA123!",
     "database": "postgres"
+  },
+  "objectStorage": {
+    "host": "207.154.241.194",
+    "port": 9000,
+    "accessKey": "minio",
+    "secretKey": "minio123"
   }
 }

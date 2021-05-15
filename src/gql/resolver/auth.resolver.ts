@@ -1,3 +1,4 @@
+import { FileUpload, GraphQLUpload } from "graphql-upload";
 import AuthService from "service/auth";
 import {
   Arg,
@@ -116,6 +117,21 @@ export default class AuthResolver {
       newPassword
     );
     return new PasswordChanged(user.email);
+  }
+
+  @Authorized()
+  @Mutation(() => Boolean)
+  async uploadProfileImage(
+    @Arg("image", () => GraphQLUpload) image: FileUpload,
+    @Ctx("user") user: User
+  ): Promise<boolean> {
+    return this.authService
+      .uploadProfilePicture(user, image.createReadStream(), image.mimetype)
+      .then(() => true)
+      .catch((err) => {
+        console.error(err);
+        return false;
+      });
   }
 }
 
