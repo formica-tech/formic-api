@@ -1,16 +1,12 @@
 import { ReadStream } from "fs";
+import IObjectStorage, { ObjectType } from "interface/ObjectStorage";
 import { Readable } from "stream";
 import { Inject, Service } from "typedi";
-import Config from "utils/config";
+import Config from "service/config";
 import { Client } from "minio";
 
-export enum ObjectType {
-  ProfilePicture = "profile",
-  MachinePicture = "machine",
-}
-
 @Service()
-export default class ObjectStorage {
+export default class MinioStorage implements IObjectStorage {
   private client: Client;
   private static MAIN_BUCKET = "formica";
   constructor(@Inject(() => Config) private config: Config) {}
@@ -29,11 +25,11 @@ export default class ObjectStorage {
       secretKey,
       useSSL: false,
     });
-    await this.client.bucketExists(ObjectStorage.MAIN_BUCKET).then((exists) => {
+    await this.client.bucketExists(MinioStorage.MAIN_BUCKET).then((exists) => {
       if (exists) {
         return;
       }
-      return this.client.makeBucket(ObjectStorage.MAIN_BUCKET, "us-east-1");
+      return this.client.makeBucket(MinioStorage.MAIN_BUCKET, "us-east-1");
     });
   }
 
@@ -44,7 +40,7 @@ export default class ObjectStorage {
     contentType = "application/octet-stream"
   ): Promise<void> {
     await this.client.putObject(
-      ObjectStorage.MAIN_BUCKET,
+      MinioStorage.MAIN_BUCKET,
       `${objectType}/${name}`,
       file,
       {
@@ -59,8 +55,8 @@ export default class ObjectStorage {
   ): Promise<{ file: Readable; contentType: string }> {
     const filePath = `${objectType}/${name}`;
     const [file, stat] = await Promise.all([
-      this.client.getObject(ObjectStorage.MAIN_BUCKET, filePath),
-      this.client.statObject(ObjectStorage.MAIN_BUCKET, filePath),
+      this.client.getObject(MinioStorage.MAIN_BUCKET, filePath),
+      this.client.statObject(MinioStorage.MAIN_BUCKET, filePath),
     ]);
     return {
       file,

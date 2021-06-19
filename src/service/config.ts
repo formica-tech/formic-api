@@ -3,7 +3,14 @@ import * as fs from "fs";
 import { Service } from "typedi";
 import * as z from "zod";
 
+export enum AppEnv {
+  DEV = "DEV",
+  PROD = "PROD",
+  TEST = "TEST",
+}
+
 const AppConfig = z.object({
+  env: z.nativeEnum(AppEnv).default(AppEnv.DEV),
   address: z.string(),
   port: z.number(),
   key: z.object({ private: z.string(), public: z.string() }),
@@ -17,6 +24,8 @@ const AppConfig = z.object({
   redis: z.object({
     host: z.string(),
     port: z.number(),
+    user: z.string(),
+    password: z.string(),
   }),
   sql: z.object({
     host: z.string(),
@@ -24,12 +33,14 @@ const AppConfig = z.object({
     username: z.string(),
     password: z.string(),
     database: z.string(),
+    ssl: z.boolean().optional().default(false),
   }),
   objectStorage: z.object({
     host: z.string(),
     port: z.number(),
     accessKey: z.string(),
     secretKey: z.string(),
+    ssl: z.boolean().optional().default(false),
   }),
 });
 

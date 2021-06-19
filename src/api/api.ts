@@ -1,5 +1,5 @@
 import AuthService from "service/auth";
-import ObjectStorage, { ObjectType } from "utils/objectStorage";
+import { ObjectStorage, ObjectType } from "interface/ObjectStorage";
 import { Container } from "typedi";
 import { Express } from "express";
 

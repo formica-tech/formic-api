@@ -1,9 +1,10 @@
+import IMailer from "interface/Mailer";
 import { Transporter, createTransport } from "nodemailer";
 import { Inject, Service } from "typedi";
-import Config from "utils/config";
+import Config from "service/config";
 
 @Service()
-class Mailer {
+class NodeMailer implements IMailer {
   private transporter: Transporter;
   constructor(@Inject(() => Config) private config: Config) {
     const { smtp } = this.config.get();
@@ -34,4 +35,4 @@ class Mailer {
   }
 }
 
-export default Mailer;
+export default NodeMailer;

@@ -1,14 +1,17 @@
 import User from "entity/user";
 import UserVerificationCode from "entity/userVerificationCode";
 import { ReadStream } from "fs";
+import IObjectStorage, {
+  ObjectStorage,
+  ObjectType,
+} from "interface/ObjectStorage";
 import ServiceError from "service/ServiceError";
 import { Inject, Service } from "typedi";
 import { EntityManager } from "typeorm";
 import { InjectManager } from "typeorm-typedi-extensions";
-import Config from "utils/config";
-import JWT from "utils/jwt";
-import ObjectStorage, { ObjectType } from "utils/objectStorage";
-import Mailer from "utils/mailer";
+import Config from "service/config";
+import JWT from "service/jwt";
+import IMailer, { Mailer } from "interface/Mailer";
 
 export type JwtPayload = {
   user: {
@@ -23,13 +26,13 @@ export type JwtPayload = {
 @Service()
 export default class AuthService {
   @Inject(() => Mailer)
-  private readonly mailer: Mailer;
+  private readonly mailer: IMailer;
 
   @InjectManager()
   private readonly entityManager: EntityManager;
 
   @Inject(() => ObjectStorage)
-  private readonly objectStorage: ObjectStorage;
+  private readonly objectStorage: IObjectStorage;
 
   private jwt: JWT<JwtPayload>;
 

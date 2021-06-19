@@ -30,7 +30,7 @@ class VerificationInput {
 
 @Service()
 @Resolver()
-export default class AuthResolver {
+export default class Auth {
   @Inject(() => AuthService)
   private readonly authService: AuthService;
 
