@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "nodemon",
     "start": "env NODE_PATH=./dist node ./dist/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "env NODE_TLS_REJECT_UNAUTHORIZED=0 jest",
     "build": "tsc",
     "build:docker": "npm run build && docker build -t formic-api ./",
     "lint": "eslint ./src",
     "lint:fix": "eslint ./src --fix",
-    "format": "prettier --write ./src",
+    "format": "prettier --check ./src",
+    "format:fix": "prettier --write ./src",
     "predeploy": "npm run build:docker",
     "deploy": "docker rm -f formic-api && docker run -d --name formic-api --network=formica -p 4000:4000 formic-api"
   },
@@ -40,12 +41,14 @@
     "typedi": "^0.8.0",
     "typeorm": "^0.2.29",
     "typeorm-typedi-extensions": "^0.2.3",
-    "zod": "^1.11.11"
+    "zod": "^3.2.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^11.0.0",
     "@commitlint/config-conventional": "^11.0.0",
+    "@types/graphql-upload": "^8.0.5",
     "@types/ioredis": "^4.17.8",
+    "@types/jest": "^26.0.23",
     "@types/jsonwebtoken": "^8.5.0",
     "@types/mime-types": "^2.1.0",
     "@types/minio": "^7.0.6",
@@ -58,9 +61,11 @@
     "eslint-config-prettier": "^7.0.0",
     "eslint-plugin-prettier": "^3.2.0",
     "husky": "^4.3.5",
+    "jest": "^27.0.4",
     "lint-staged": "^10.5.3",
     "nodemon": "^2.0.6",
     "prettier": "^2.2.1",
+    "ts-jest": "^27.0.3",
     "ts-node": "^9.1.1",
     "typescript": "^4.1.2"
   },
@@ -69,7 +74,7 @@
       "src",
       "config.json"
     ],
-    "exec": "ts-node --files ./src/app.ts",
+    "exec": "ts-node --files ./src/index.ts",
     "env": {
       "NODE_PATH": "./src"
     },
@@ -112,6 +117,14 @@
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
+    ]
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "moduleDirectories": [
+      "node_modules",
+      "src"
     ]
   }
 }
